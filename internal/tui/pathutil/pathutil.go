@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/pulseaiclub/phi/internal/util"
 )
 
 // ShortPath abbreviates a filesystem path for display.
@@ -26,7 +28,9 @@ func ShortPath(p string) string {
 
 // GitBranch returns the current git branch of dir, or "" when unavailable.
 func GitBranch(ctx context.Context, dir string) string {
-	out, err := exec.CommandContext(ctx, "git", "-C", dir, "branch", "--show-current").Output()
+	cmd := exec.CommandContext(ctx, "git", "-C", dir, "branch", "--show-current")
+	util.SetGitLocale(cmd)
+	out, err := cmd.Output()
 	if err != nil {
 		return ""
 	}

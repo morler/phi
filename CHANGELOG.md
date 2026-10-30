@@ -10,6 +10,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Add `phi repl` to start the embedded Glojure REPL.
+
 ### Fixed
 
 <!-- Released section -->

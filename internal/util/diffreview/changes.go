@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pulseaiclub/phi/internal/util"
 	"github.com/pulseaiclub/phi/internal/util/gitx"
 )
 
@@ -49,6 +50,7 @@ func LoadChange(ctx context.Context, root string, change gitx.Change) (string, e
 		argv = append(argv, "--no-index", "--", "/dev/null", "./"+change.Path)
 	} else {
 		head := exec.CommandContext(ctx, "git", "rev-parse", "--verify", "--quiet", "HEAD")
+		util.SetGitLocale(head)
 		head.Dir = root
 		if _, err := head.Output(); err != nil {
 			if exit, ok := errors.AsType[*exec.ExitError](err); !ok || exit.ExitCode() != 1 {
@@ -67,6 +69,7 @@ func LoadChange(ctx context.Context, root string, change gitx.Change) (string, e
 		}
 	}
 	cmd := exec.CommandContext(ctx, "git", argv...) //nolint:gosec // fixed git command, literal status paths
+	util.SetGitLocale(cmd)
 	cmd.Dir = root
 	out, err := cmd.Output()
 	if err != nil {

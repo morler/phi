@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pulseaiclub/phi/internal/util"
 	"github.com/pulseaiclub/phi/internal/util/gitx"
 )
 
@@ -150,6 +151,7 @@ func tracked(cwd, path string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", "ls-files", "--error-unmatch", "--", path) //nolint:gosec // G204: fixed argv
+	util.SetGitLocale(cmd)
 	if cwd != "" {
 		cmd.Dir = cwd
 	}
@@ -195,6 +197,7 @@ func LoadGit(ctx context.Context, cwd string, spec []string) (string, error) {
 		return "", err
 	}
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...) //nolint:gosec // G204: git from GitArgv, or /diff -- argv
+	util.SetGitLocale(cmd)
 	if cwd != "" {
 		cmd.Dir = cwd
 	}

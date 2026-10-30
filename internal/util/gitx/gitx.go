@@ -268,6 +268,7 @@ func run(ctx context.Context, dir string, args ...string) (string, error) {
 	cctx, cancel := withTimeout(ctx)
 	defer cancel()
 	cmd := exec.CommandContext(cctx, "git", args...)
+	util.SetGitLocale(cmd)
 	if dir != "" {
 		cmd.Dir = dir
 	}
