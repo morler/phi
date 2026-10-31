@@ -36,6 +36,60 @@ type fixedGate struct {
 	reason string
 }
 
+type gateFunc func(context.Context, permission.Request) (permission.Decision, string)
+
+func (f gateFunc) Check(ctx context.Context, req permission.Request) (permission.Decision, string) {
+	return f(ctx, req)
+}
+
+func TestExecutorCancellationBeforeHandler(t *testing.T) {
+	for _, stage := range []string{"gate-allow", "gate-ask", "ask"} {
+		t.Run(stage, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			var ran, asked atomic.Int32
+			reg := tooldef.Registry{"write": {
+				Definition: llm.ToolDefinition{Name: "write"},
+				Run: func(context.Context, json.RawMessage) (tooldef.Result, error) {
+					ran.Add(1)
+					return tooldef.Result{}, nil
+				},
+			}}
+			gate := gateFunc(func(context.Context, permission.Request) (permission.Decision, string) {
+				if stage != "ask" {
+					cancel()
+				}
+				if stage == "gate-allow" {
+					return permission.Allow, ""
+				}
+				return permission.Ask, "approval required"
+			})
+			ask := func(context.Context, permission.Request, string) (permission.AskResult, error) {
+				asked.Add(1)
+				cancel()
+				return permission.AskResult{Approved: true}, nil
+			}
+			ex := NewExecutor(reg, gate, ask, nil)
+			var statuses []session.ToolStatus
+			msgs, _, _ := ex.Run(
+				ctx,
+				[]llm.ToolCall{{ID: "c1", Function: llm.Function{Name: "write", Arguments: `{}`}}},
+				func(td session.ToolData) bool { statuses = append(statuses, td.Run.Status); return true },
+			)
+			require.Len(t, msgs, 1)
+			assert.Equal(t, ToolCanceledResult, msgs[0].Content)
+			assert.Contains(t, statuses, session.ToolCancelled)
+			assert.NotContains(t, statuses, session.ToolRejected)
+			assert.Zero(t, ran.Load())
+			if stage == "ask" {
+				assert.EqualValues(t, 1, asked.Load())
+			} else {
+				assert.Zero(t, asked.Load())
+			}
+		})
+	}
+}
+
 func (g fixedGate) Check(context.Context, permission.Request) (permission.Decision, string) {
 	return g.dec, g.reason
 }

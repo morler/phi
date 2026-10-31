@@ -14,6 +14,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- Stop tool execution when cancellation arrives during permission checks or approval.
+
 <!-- Released section -->
 <!-- Don't change this section unless doing release -->
 

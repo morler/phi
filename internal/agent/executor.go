@@ -217,9 +217,17 @@ func (e *Executor) runOne(
 		}
 	}
 
+	if ctx.Err() != nil {
+		e.ext.EmitToolExecutionEnd(call.Function.Name, call.ID, true)
+		return e.cancelResult(call, emit), false, ""
+	}
 	if msg, rejected := e.checkPermission(ctx, call, args, detail, emit); rejected {
 		e.ext.EmitToolExecutionEnd(call.Function.Name, call.ID, true)
 		return msg, false, ""
+	}
+	if ctx.Err() != nil {
+		e.ext.EmitToolExecutionEnd(call.Function.Name, call.ID, true)
+		return e.cancelResult(call, emit), false, ""
 	}
 
 	result, err := tool.Run(tooldef.WithToolCallID(ctx, call.ID), args)
@@ -299,6 +307,9 @@ func (e *Executor) checkPermission(
 	}
 
 	dec, reason := e.gate.Check(ctx, req)
+	if ctx.Err() != nil {
+		return llm.Message{}, false
+	}
 	switch dec {
 	case permission.Allow:
 		return llm.Message{}, false
@@ -317,8 +328,14 @@ func (e *Executor) checkPermission(
 		res, askErr := func() (permission.AskResult, error) {
 			e.askMu.Lock()
 			defer e.askMu.Unlock()
+			if err := ctx.Err(); err != nil {
+				return permission.AskResult{}, err
+			}
 			return e.ask(ctx, req, reason)
 		}()
+		if ctx.Err() != nil {
+			return llm.Message{}, false
+		}
 		if askErr != nil {
 			msg := fmt.Sprintf("approval failed: %v", askErr)
 			return e.rejectResult(call, detail, msg, emit), true
