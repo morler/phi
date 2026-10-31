@@ -120,3 +120,49 @@ func TestRuntimeStopped(t *testing.T) {
 	_, err = rt.Eval(t.Context(), `42`)
 	require.ErrorIs(t, err, ErrUnavailable)
 }
+
+func TestRuntimeSkipsCanceledRequest(t *testing.T) {
+	rt, err := New()
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	rt.requests <- request{ctx: ctx, code: `(def phi-canceled-request true)`, reply: make(chan response)}
+	checkCtx, checkCancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer checkCancel()
+	result, err := rt.Eval(checkCtx, `(resolve 'phi-canceled-request)`)
+	require.NoError(t, err)
+	assert.Equal(t, "nil", result.Value)
+}
+
+func TestRuntimeCancelBeforeStart(t *testing.T) {
+	rt := &Runtime{requests: make(chan request), done: make(chan struct{})}
+	ctx, cancel := context.WithCancel(t.Context())
+	result := make(chan error, 1)
+	go func() {
+		_, err := rt.Eval(ctx, `(def should-not-run true)`)
+		result <- err
+	}()
+	var req request
+	select {
+	case req = <-rt.requests:
+	case <-time.After(10 * time.Second):
+		require.FailNow(t, "request was not submitted")
+	}
+	cancel()
+	select {
+	case err := <-result:
+		require.ErrorIs(t, err, context.Canceled)
+	case <-time.After(10 * time.Second):
+		require.FailNow(t, "canceled request did not return")
+	}
+	select {
+	case req.start <- struct{}{}:
+		require.FailNow(t, "canceled request accepted start")
+	default:
+	}
+	select {
+	case <-rt.done:
+		require.FailNow(t, "cancellation before start stopped the runtime")
+	default:
+	}
+}

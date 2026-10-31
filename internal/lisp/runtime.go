@@ -31,8 +31,10 @@ type Result struct {
 }
 
 type request struct {
+	ctx   context.Context
 	code  string
 	reply chan response
+	start chan struct{}
 }
 
 type response struct {
@@ -72,12 +74,20 @@ func (r *Runtime) Eval(ctx context.Context, code string) (Result, error) {
 		return Result{}, err
 	}
 	reply := make(chan response)
+	start := make(chan struct{})
 	select {
 	case <-ctx.Done():
 		return Result{}, ctx.Err()
 	case <-r.done:
 		return Result{}, ErrUnavailable
-	case r.requests <- request{code: code, reply: reply}:
+	case r.requests <- request{ctx: ctx, code: code, reply: reply, start: start}:
+	}
+	select {
+	case <-ctx.Done():
+		return Result{}, ctx.Err()
+	case <-r.done:
+		return Result{}, ErrUnavailable
+	case <-start:
 	}
 	select {
 	case <-ctx.Done():
@@ -112,6 +122,16 @@ func (r *Runtime) run(ready chan<- error) {
 			case <-r.done:
 				return
 			default:
+			}
+			if req.ctx.Err() != nil {
+				continue
+			}
+			select {
+			case req.start <- struct{}{}:
+			case <-req.ctx.Done():
+				continue
+			case <-r.done:
+				return
 			}
 			result, err := evaluate(env, req.code, r.done)
 			select {
