@@ -1,18 +1,18 @@
-# Beans configuration
-# See: https://github.com/xRiErOS/beans
+# Lif configuration
+# See: https://github.com/rierek/lif
 project:
     # Human-readable project name (displayed in the UI)
     name: phi
-beans:
-    # Directory where bean files are stored
-    path: .beans
-    # Prefix for bean IDs (e.g., "myproject-abc1")
+lif:
+    # Directory where item files are stored
+    path: .lif
+    # Prefix for item IDs (e.g., "myproject-abc1")
     prefix: phi-
     # Length of the random ID suffix
     id_length: 4
-    # Default status for new beans
+    # Default status for new items
     default_status: todo
-    # Default type for new beans
+    # Default type for new items
     default_type: task
 worktree:
     # Git ref to use as the base for new worktree branches (default: main)
@@ -29,5 +29,5 @@ agent:
     # Default mode for agent sessions (act, plan)
     default_mode: act
 server:
-    # Port for the web UI (used by `beans-serve`)
+    # Port for the web UI (used by `lif-serve`)
     port: 8080
