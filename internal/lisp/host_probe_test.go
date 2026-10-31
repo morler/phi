@@ -95,7 +95,7 @@ func TestHostNetworkProbe(t *testing.T) {
 		return
 	}
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES) {
 		t.Skipf("local listener is unavailable: %v", err)
 	}
